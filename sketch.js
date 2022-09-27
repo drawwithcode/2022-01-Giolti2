@@ -6,31 +6,33 @@ var circles = [];
 //per creare le linee
 var lines = [];
 
+//how many lines I want
+let lineNumber = 5
+
 function preload() {
   // put preload code here
-  lines = [
-    {
-      x1: 0, x2: 1,
-      y1: 0.45, y2: 0.8,
-      color: color(126, 75, 114),
-      weight: 7,
-      isHorizontal: 1,
-      startLeft: 1
-    },
-    {
-      x1: 0, x2: 1,
-      y1: 0.25, y2: 0.6,
-      color: color(240, 75, 114),
-      weight: 7,
-      isHorizontal: 1,
-      startLeft: 1
-    }
-  ]
+
+  for(let i = 0; i < lineNumber; i++){
+    lines.push(randomLine())
+  }
+}
+
+function circleTimer(){
+  let maxTime = 4000;
+  let minTime = 1000;
+
+  setTimeout(function(){
+    circles.push(randomCircle());
+    assignCircle(circles[circles.length-1], random(lines))
+    circleTimer();
+  }, random(minTime, maxTime))
 }
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
   // put setup code here
+
+  circleTimer();
 }
 
 function draw() {
@@ -39,9 +41,10 @@ function draw() {
 
   lines.forEach(element => drawLine(element))
   
-  noStroke()
-  fill(255, 0, 0)
-  circle()
+  circles.forEach(element => updateCircle(element))
+
+  //elimina i cerchi fuori dall'area
+  circles = circles.filter(element => Math.abs(element.distance) < (width*2))
 }
 
 //funzione per creare linee in base
@@ -68,43 +71,53 @@ function drawLine(obj) {
 }
 
 //funzione che crea linee di direzione e colore casuale
+//may drop this
 function randomLine() {
 
   let randLine = {
-    x1: 0, x2: 0,
+    x1: 0, x2: 1,
     y1: 0, y2: 0,
-    color: color(126, 75, 114),
-    weight: 7,
-    isHorizontal: 1,
+    color: color(random(0, 255), random(0, 255), random(0, 255)),
+    weight: 8,
     startLeft: 1
   }
 
-  let orientation = Math.round(random());
   let direction = Math.round(random());
 
-  if (orientation) {
-    
+  randLine.startLeft = direction;
+
+  //true if going right
+  if (direction) {
+    randLine.y1 = random(0, 0.7);
+    randLine.y2 = random(randLine.y1, 1);
   }
   else {
-    
+    randLine.y2 = random(0, 0.7);
+    randLine.y1 = random(randLine.y2, 1);
   }
+
+  return randLine;
 }
+
 //funzione che crea cerchi di dimensione e colore casuale
 function randomCircle() {
-  const maxRadius = 200;
-  const minRadius = 100;
+  const maxRadius = 70;
+  const minRadius = 20;
 
   //unità al secondo 
-  const maxSpeed = 300;
+  const maxSpeed = 250;
   const minSpeed = 80;
+
+  console.log(frameRate())
 
   let randCircle = {
     radius: random(minRadius, maxRadius),
     color: color(random(0, 255), random(0, 255), random(0, 255)),
-    center: { x: 0, y: 0 },
+    center: { x: 0, y: 0 }, //inherited from line
     speed: random(minSpeed, maxSpeed)/frameRate(),
-    angle: 0,
-    distance: 0
+    angle: 0, //inherited from line
+    distance: -200, //updated dynamically
+    startLeft: 0 //inherited from line
     }
   
   return randCircle
@@ -112,13 +125,54 @@ function randomCircle() {
 
 //funzione che associa a un cerchio una linea da seguire
 function assignCircle(obj, follow) {
-  let slope = (follow.y1 - follow.y2) / (follow.x1 - follow.x2)
 
-  console.log(slope)
-  console.log(Math.atan(slope))
+  //SCREW VECTORS DO NOT TOUCH
+  /*let vect1 = createVector(follow.x1*width, follow.y1*height);
+  let vect2 = createVector(follow.x2*width, follow.y2*height);
+  let angle = vect1.angleBetween(vect2)*/
+
+  //console.log(vect1)
+  //console.log(vect2)
+
+  //get angle by trigonometry
+  let angle = Math.abs(follow.y2*height - follow.y1*height) / dist(follow.x1*width, follow.y1*height, follow.x2*width, follow.y2*height);
+  angle = Math.asin(angle)
+
+  if(!follow.startLeft){
+    angle = Math.PI - angle;
+  }
+
+  console.log("angle: "+angle*180/Math.PI)
+
+  if(follow.startLeft){
+    obj.center.x = follow.x1 * width;
+    obj.center.y = follow.y1 * height;
+  }
+  else{
+    obj.center.x = follow.x2 * width;
+    obj.center.y = follow.y2 * height;
+  }
+  
+  obj.angle = angle;
+
+  obj.startLeft = follow.startLeft
+
+  console.log(obj)
 }
 
 //funzione che aggiorna il movimento dei cerchi
 function updateCircle(obj) {
+  push();
 
+  translate(obj.center.x, obj.center.y);
+  rotate(obj.angle);
+
+  noStroke();
+  fill(obj.color);
+
+  circle(obj.distance, (obj.radius+4)*(1-obj.startLeft*2), obj.radius*2);
+
+  obj.distance += obj.speed;
+
+  pop();
 }
